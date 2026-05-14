@@ -127,6 +127,11 @@ fun EditContainerScreen(
     var isSaved by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
+    var availableUpstreams by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        availableUpstreams = ContainerManager.listUpstreamInterfaces()
+    }
+
     // Track if any field has changed from SAVED values (not original)
     val hasChanges by remember {
         derivedStateOf {
@@ -251,75 +256,37 @@ fun EditContainerScreen(
 
     if (showDestDialog) {
         var destPath by remember { mutableStateOf("") }
-        Dialog(
+        AlertDialog(
             onDismissRequest = { showDestDialog = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                tonalElevation = 0.dp
-            ) {
-                Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(context.getString(R.string.enter_container_path), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(
-                        value = destPath,
-                        onValueChange = { destPath = it },
-                        label = { Text(context.getString(R.string.container_path_placeholder)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    )
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(onClick = { clearFocus(); showDestDialog = false }),
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            tonalElevation = 0.dp
-                        ) {
-                            Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                                Text(context.getString(R.string.cancel), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                            }
+            title = { Text(context.getString(R.string.enter_container_path)) },
+            text = {
+                OutlinedTextField(
+                    value = destPath,
+                    onValueChange = { destPath = it },
+                    label = { Text(context.getString(R.string.container_path_placeholder)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (destPath.isNotBlank()) {
+                            bindMounts = bindMounts + BindMount(tempSrcPath, destPath)
+                            showDestDialog = false
                         }
-                        Surface(
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(
-                                enabled = destPath.startsWith("/"),
-                                onClick = {
-                                    clearFocus()
-                                    if (destPath.isNotBlank()) {
-                                        bindMounts = bindMounts + BindMount(tempSrcPath, destPath)
-                                        showDestDialog = false
-                                    }
-                                }
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            color = if (destPath.startsWith("/")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            tonalElevation = 0.dp
-                        ) {
-                            Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                                Text(
-                                    context.getString(R.string.ok),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (destPath.startsWith("/")) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                )
-                            }
-                        }
-                    }
+                    },
+                    enabled = destPath.startsWith("/")
+                ) {
+                    Text(context.getString(R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDestDialog = false }) {
+                    Text(context.getString(R.string.cancel))
                 }
             }
-        }
+        )
     }
 
     var showEnvDialog by remember { mutableStateOf(false) }
@@ -349,7 +316,6 @@ fun EditContainerScreen(
     }
 
     Scaffold(
-        containerColor = Color.Transparent,
         topBar = {
             TopAppBar(
                 title = {
@@ -366,96 +332,52 @@ fun EditContainerScreen(
             )
         },
         bottomBar = {
-            val btnShape = RoundedCornerShape(20.dp)
             val isReadyToSave = !isSaving && !isSaved && hasChanges && (netMode != "nat" || upstreamInterfaces.isNotEmpty())
-            val targetBtnColor = when {
-                isSaved -> MaterialTheme.colorScheme.primaryContainer
-                isSaving || isReadyToSave -> MaterialTheme.colorScheme.primary
-                else -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
-            }
-            val animatedBtnColor by animateColorAsState(
-                targetValue = targetBtnColor,
-                animationSpec = tween(durationMillis = 250),
-                label = "btn_color"
-            )
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                tonalElevation = 0.dp
+                tonalElevation = 2.dp,
+                shadowElevation = 8.dp
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        thickness = 1.dp
-                    )
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp)
-                            .navigationBarsPadding()
-                            .clip(btnShape)
-                            .clickable(
-                                enabled = isReadyToSave,
-                                onClick = {
-                                    clearFocus()
-                                    saveChanges()
-                                },
-                                indication = androidx.compose.material.ripple.rememberRipple(bounded = true),
-                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                            ),
-                        shape = btnShape,
-                        color = animatedBtnColor,
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(vertical = 16.dp).fillMaxWidth(), contentAlignment = Alignment.Center) {
-                            when {
-                                isSaved -> {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Icon(
-                                            imageVector = Icons.Default.Check,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp),
-                                            tint = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                        Text(
-                                            text = context.getString(R.string.saved),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onPrimaryContainer
-                                        )
-                                    }
-                                }
-                                isSaving -> {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        LoadingIndicator(
-                                            modifier = Modifier.size(20.dp),
-                                            color = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                        Text(
-                                            text = context.getString(R.string.saving),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = MaterialTheme.colorScheme.onPrimary
-                                        )
-                                    }
-                                }
-                                else -> {
-                                    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Icon(
-                                            imageVector = Icons.Default.Save,
-                                            contentDescription = null,
-                                            modifier = Modifier.size(20.dp),
-                                            tint = if (isReadyToSave) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                        )
-                                        Text(
-                                            text = context.getString(R.string.save_changes),
-                                            style = MaterialTheme.typography.labelLarge,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (isReadyToSave) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                        )
-                                    }
-                                }
-                            }
+                Button(
+                    onClick = {
+                        clearFocus()
+                        saveChanges()
+                    },
+                    enabled = isReadyToSave,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                        .navigationBarsPadding()
+                        .height(56.dp)
+                ) {
+                    when {
+                        isSaved -> {
+                            Icon(
+                                imageVector = Icons.Default.Check,
+                                contentDescription = context.getString(R.string.saved),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = context.getString(R.string.saved),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        isSaving -> {
+                            LoadingIndicator(
+                                size = LoadingSize.Small,
+                                color = MaterialTheme.colorScheme.onPrimary
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = context.getString(R.string.saving),
+                                style = MaterialTheme.typography.labelLarge
+                            )
+                        }
+                        else -> {
+                            Text(
+                                text = context.getString(R.string.save_changes),
+                                style = MaterialTheme.typography.labelLarge
+                            )
                         }
                     }
                 }
@@ -470,39 +392,55 @@ fun EditContainerScreen(
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp)
-                    .padding(top = 8.dp),
+                    .padding(top = 8.dp, bottom = 24.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
             // Warning if container is running
             if (container.isRunning) {
-                Surface(
-                    color = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.2f),
-                    shape = RoundedCornerShape(20.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
-                    modifier = Modifier.fillMaxWidth()
+                val cardShape = RoundedCornerShape(20.dp)
+                val interactionSource = remember { MutableInteractionSource() }
+
+                ElevatedCard(
+                    colors = CardDefaults.elevatedCardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer
+                    ),
+                    shape = cardShape,
+                    elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 100.dp)
+                        .clip(cardShape)
+                        .combinedClickable(
+                            interactionSource = interactionSource,
+                            indication = rememberRipple(bounded = true),
+                            onClick = { clearFocus() }
+                        )
                 ) {
                     Row(
-                        modifier = Modifier.padding(20.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(28.dp),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Warning,
                             contentDescription = null,
-                            modifier = Modifier.size(24.dp),
-                            tint = MaterialTheme.colorScheme.error
+                            modifier = Modifier.size(38.dp),
+                            tint = MaterialTheme.colorScheme.onErrorContainer
                         )
-                        Column {
+                        Column(
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
                             Text(
                                 text = context.getString(R.string.container_is_running),
-                                style = MaterialTheme.typography.titleSmall,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.error
+                                style = MaterialTheme.typography.titleMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
                             Text(
                                 text = context.getString(R.string.changes_take_effect_after_restart),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onErrorContainer
                             )
                         }
                     }
@@ -510,21 +448,12 @@ fun EditContainerScreen(
             }
 
             // Hostname input
-            val modernFieldShape = RoundedCornerShape(16.dp)
-            val modernFieldColors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-            )
             OutlinedTextField(
                 value = hostname,
                 onValueChange = { hostname = it },
                 label = { Text(context.getString(R.string.hostname)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = modernFieldShape,
-                colors = modernFieldColors,
                 leadingIcon = {
                     Icon(Icons.Default.Computer, contentDescription = null)
                 }
@@ -635,8 +564,6 @@ fun EditContainerScreen(
                             label = { Text(context.getString(R.string.octet_label, 3)) },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = modernFieldShape,
-                            colors = modernFieldColors,
                             isError = !isOctet3Valid,
                             supportingText = { if (!isOctet3Valid) Text(context.getString(R.string.error_octet_range)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -659,8 +586,6 @@ fun EditContainerScreen(
                             label = { Text(context.getString(R.string.octet_label, 4)) },
                             modifier = Modifier.weight(1f),
                             singleLine = true,
-                            shape = modernFieldShape,
-                            colors = modernFieldColors,
                             isError = !isOctet4Valid,
                             supportingText = { if (!isOctet4Valid) Text(context.getString(R.string.error_octet_range)) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
@@ -723,14 +648,14 @@ fun EditContainerScreen(
                 onValueChange = { dnsServers = it },
                 label = { Text(context.getString(R.string.dns_servers_label)) },
                 supportingText = {
-                    if (isDnsError) Text(context.getString(R.string.dns_servers_hint))
+                    if (isDnsError) {
+                        Text(context.getString(R.string.dns_servers_hint))
+                    }
                 },
                 isError = isDnsError,
                 placeholder = { Text(context.getString(R.string.dns_servers_placeholder)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = modernFieldShape,
-                colors = modernFieldColors,
                 leadingIcon = {
                     Icon(Icons.Default.Dns, contentDescription = null)
                 }
@@ -931,11 +856,11 @@ fun EditContainerScreen(
             }
 
             bindMounts.forEach { mount ->
-                Surface(
+                Card(
                     modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                    )
                 ) {
                     Row(
                         modifier = Modifier.padding(16.dp),
@@ -965,44 +890,24 @@ fun EditContainerScreen(
                 }
             }
 
-            val addBindBtnShape = RoundedCornerShape(16.dp)
-            Surface(
-                modifier = Modifier.fillMaxWidth().clip(addBindBtnShape).clickable(
-                    onClick = { showFilePicker = true },
-                    indication = rememberRipple(bounded = true),
-                    interactionSource = remember { MutableInteractionSource() }
-                ),
-                shape = addBindBtnShape,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                tonalElevation = 0.dp
+            OutlinedButton(
+                onClick = { showFilePicker = true },
+                modifier = Modifier.fillMaxWidth()
             ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp),
-                        tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = context.getString(R.string.add_bind_mount),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
+                Icon(Icons.Default.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(context.getString(R.string.add_bind_mount))
             }
 
             // Error message
             errorMessage?.let { error ->
-                Surface(
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    shape = RoundedCornerShape(20.dp),
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
+                Card(
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                        contentColor = MaterialTheme.colorScheme.onErrorContainer
+                    ),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 16.dp)
                         .clickable { clearFocus() }
                 ) {
                     Text(
@@ -1015,7 +920,7 @@ fun EditContainerScreen(
             }
 
             Spacer(modifier = Modifier.height(16.dp))
+            }
         }
     }
-}
 }

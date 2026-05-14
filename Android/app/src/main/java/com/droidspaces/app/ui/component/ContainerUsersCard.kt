@@ -125,13 +125,15 @@ fun ContainerUsersCard(
         }
     }
 
-    Surface(
+    ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
             .animateContentSize(), // Smooth height changes when dropdown opens
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        )
     ) {
         Column(
             modifier = Modifier
@@ -147,7 +149,7 @@ fun ContainerUsersCard(
                 // Title area - clickable to unfocus
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
                     modifier = Modifier.clickable(
                         indication = null,
                         interactionSource = remember { MutableInteractionSource() }
@@ -158,14 +160,13 @@ fun ContainerUsersCard(
                     Icon(
                         Icons.Default.Person,
                         contentDescription = null,
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier.size(22.dp),
                         tint = MaterialTheme.colorScheme.primary
                     )
                     Text(
                         text = context.getString(R.string.available_users),
                         style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        fontWeight = FontWeight.Bold
                     )
                 }
 
@@ -255,6 +256,20 @@ fun ContainerUsersCard(
             }
 
             // User selection dropdown - optimized with single source of truth
+            // Premium border animation - fast 150ms transition for snappy feel (matches search bar)
+            val animatedBorderColor by animateColorAsState(
+                targetValue = if (isDropdownExpanded) {
+                    MaterialTheme.colorScheme.primary
+                } else {
+                    MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+                },
+                animationSpec = tween(
+                    durationMillis = 150,
+                    easing = FastOutSlowInEasing
+                ),
+                label = "dropdown_border_animation"
+            )
+
             ExposedDropdownMenuBox(
                 expanded = isDropdownExpanded,
                 onExpandedChange = { newExpanded ->
@@ -277,12 +292,12 @@ fun ContainerUsersCard(
                     trailingIcon = {
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = isDropdownExpanded)
                     },
-                    shape = RoundedCornerShape(16.dp),
                     colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
+                        // Static container - only border animates for smooth performance
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
                         unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
+                        focusedBorderColor = animatedBorderColor,
+                        unfocusedBorderColor = animatedBorderColor
                     ),
                 modifier = Modifier
                     .menuAnchor()

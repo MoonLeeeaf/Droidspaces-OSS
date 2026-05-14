@@ -663,30 +663,21 @@ fun ContainersScreen(
 
         // FAB LAYER (Above everything, below dialogs)
         if (isBackendAvailable && isRootAvailable) {
-            ExtendedFloatingActionButton(
-                onClick = { filePickerLauncher.launch("*/*") },
+            FloatingActionButton(
+                onClick = {
+                    // Launch file picker - accept all files, validation happens in callback
+                    filePickerLauncher.launch("*/*")
+                },
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
-                    .navigationBarsPadding()
-                    .padding(end = 24.dp, bottom = 88.dp), // 88dp clears the floating tab bar
-                shape = RoundedCornerShape(20.dp),
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-                icon = {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = null,
-                        modifier = Modifier.size(20.dp)
-                    )
-                },
-                text = {
-                    Text(
-                        text = context.getString(R.string.install),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-            )
+                    .padding(16.dp),
+                shape = RoundedCornerShape(16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Add,
+                    contentDescription = context.getString(R.string.install_container)
+                )
+            }
         }
 
         // SNACKBAR LAYER (Highest Z-index in the root Box)
@@ -804,82 +795,46 @@ private fun SparseSizeDialog(
     var sizeText by remember { mutableStateOf(initialSize.toString()) }
     val size = sizeText.toIntOrNull()
     val isValid = size != null && size in 4..512
-    val dialogShape = RoundedCornerShape(24.dp)
 
-    Dialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            shape = dialogShape,
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-            tonalElevation = 0.dp
-        ) {
-            Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Text(title, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.titleLarge)
-                Text(message, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        title = { Text(title, fontWeight = FontWeight.Bold) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                Text(message, style = MaterialTheme.typography.bodyMedium)
 
                 OutlinedTextField(
                     value = sizeText,
                     onValueChange = { if (it.isEmpty() || it.all { c -> c.isDigit() }) sizeText = it },
                     label = { Text(context.getString(R.string.size_gb)) },
-                    placeholder = { Text(context.getString(R.string.size_range_4_512_hint)) },
+                    placeholder = { Text("4-512") },
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    ),
-                    isError = !isValid && sizeText.isNotEmpty(),
+                    isError = !isValid,
                     supportingText = {
-                        if (!isValid && sizeText.isNotEmpty()) Text(context.getString(R.string.enter_size_between_4_512_gb))
+                        if (!isValid) Text(context.getString(R.string.enter_size_between_4_512_gb))
                     },
                     keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
                         keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
                     )
                 )
-
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(onClick = onDismiss),
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                            Text(context.getString(R.string.cancel), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    Surface(
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(enabled = isValid, onClick = { size?.let { onConfirm(it) } }),
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (isValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                            Text(
-                                context.getString(R.string.continue_button),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (isValid) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            )
-                        }
-                    }
-                }
             }
-        }
-    }
+        },
+        confirmButton = {
+            Button(
+                onClick = { size?.let { onConfirm(it) } },
+                enabled = isValid
+            ) {
+                Text(context.getString(R.string.continue_button))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(context.getString(R.string.cancel))
+            }
+        },
+        shape = RoundedCornerShape(28.dp)
+    )
 }
 
 @Composable
@@ -889,73 +844,43 @@ private fun UninstallConfirmationDialog(
     onDismiss: () -> Unit
 ) {
     val context = LocalContext.current
-    val dialogShape = RoundedCornerShape(24.dp)
-
-    Dialog(
+    AlertDialog(
         onDismissRequest = onDismiss,
-        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
-    ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp),
-            shape = dialogShape,
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.error.copy(alpha = 0.3f)),
-            tonalElevation = 0.dp
-        ) {
-            Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Warning, contentDescription = null,
-                        tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(24.dp)
-                    )
-                    Text(
-                        text = context.getString(R.string.uninstall_container_title),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                }
-                Text(
-                    text = context.getString(R.string.uninstall_container_message, containerName),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+        icon = {
+            Icon(
+                Icons.Default.Warning,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.error
+            )
+        },
+        title = {
+            Text(
+                text = context.getString(R.string.uninstall_container_title),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold
+            )
+        },
+        text = {
+            Text(
+                text = context.getString(R.string.uninstall_container_message, containerName),
+                style = MaterialTheme.typography.bodyMedium
+            )
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error
                 )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(onClick = onDismiss),
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                            Text(context.getString(R.string.cancel), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    Surface(
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(onClick = onConfirm),
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.error,
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                            Text(
-                                context.getString(R.string.uninstall),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onError
-                            )
-                        }
-                    }
-                }
+            ) {
+                Text(context.getString(R.string.uninstall), fontWeight = FontWeight.Bold)
             }
-        }
-    }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(context.getString(R.string.cancel))
+            }
+        },
+        shape = RoundedCornerShape(28.dp)
+    )
 }

@@ -47,17 +47,15 @@ fun UpstreamInterfaceList(
     Column(modifier = modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         // Selected interfaces
         upstreamInterfaces.forEach { iface ->
-            Surface(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                shape = RoundedCornerShape(20.dp),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                    modifier = Modifier.padding(16.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(text = iface, modifier = Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
+                    Text(text = iface, modifier = Modifier.weight(1f))
                     IconButton(onClick = { onInterfacesChange(upstreamInterfaces - iface) }) {
                         Icon(Icons.Default.Delete, contentDescription = null, tint = MaterialTheme.colorScheme.error)
                     }
@@ -67,31 +65,14 @@ fun UpstreamInterfaceList(
 
         // Add Button
         if (upstreamInterfaces.size < 8) {
-            val addBtnShape = RoundedCornerShape(16.dp)
-            Surface(
-                modifier = Modifier.fillMaxWidth().clip(addBtnShape).clickable(
-                    onClick = { showUpstreamDialog = true }
-                ),
-                shape = addBtnShape,
-                color = MaterialTheme.colorScheme.surfaceContainerLow,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                tonalElevation = 0.dp
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center
-                ) {
-                    Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        context.getString(R.string.add_upstream_interface),
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
+            OutlinedButton(
+                            onClick = { showUpstreamDialog = true },
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(context.getString(R.string.add_upstream_interface))
+                        }
         }
     }
 
@@ -143,120 +124,115 @@ private fun AddUpstreamDialog(
         properties = DialogProperties(usePlatformDefaultWidth = false)
     ) {
         Surface(
-            modifier = Modifier.fillMaxWidth(0.92f).wrapContentHeight(),
-            shape = RoundedCornerShape(24.dp),
-            color = MaterialTheme.colorScheme.surfaceContainer,
-            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-            tonalElevation = 0.dp
-        ) {
-            Column(
-                modifier = Modifier.padding(24.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = context.getString(R.string.add_upstream_interface),
-                        style = MaterialTheme.typography.titleLarge,
-                        fontWeight = FontWeight.Bold
-                    )
-                    IconButton(
-                        onClick = {
-                            if (!isRefreshing) {
-                                isRefreshing = true
-                                scope.launch {
-                                    val startTime = System.currentTimeMillis()
-                                    onRefresh()
-                                    val elapsed = System.currentTimeMillis() - startTime
-                                    if (elapsed < 600L) delay(600L - elapsed)
-                                    isRefreshing = false
-                                }
-                            }
-                        },
-                        enabled = !isRefreshing
-                    ) {
-                        Icon(
-                            Icons.Default.Refresh,
-                            contentDescription = null,
-                            modifier = Modifier.size(20.dp).graphicsLayer { rotationZ = rotation }
-                        )
-                    }
-                }
-
-                if (availableUpstreams.isNotEmpty()) {
-                    Text(context.getString(R.string.available_system_interfaces), style = MaterialTheme.typography.labelMedium)
-                    Box(modifier = Modifier.fillMaxWidth().heightIn(max = 200.dp)) {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            availableUpstreams.forEach { iface ->
-                                OutlinedButton(
-                                    onClick = { onAdd(iface) },
-                                    enabled = !selectedInterfaces.contains(iface),
-                                    shape = RoundedCornerShape(12.dp),
-                                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp)
+                                modifier = Modifier
+                                    .fillMaxWidth(0.92f)
+                                    .wrapContentHeight(),
+                                shape = RoundedCornerShape(28.dp),
+                                color = MaterialTheme.colorScheme.surface
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(24.dp),
+                                    verticalArrangement = Arrangement.spacedBy(16.dp)
                                 ) {
-                                    Text(iface)
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Text(
+                                            text = context.getString(R.string.add_upstream_interface),
+                                            style = MaterialTheme.typography.headlineSmall,
+                                            fontWeight = FontWeight.Bold,
+                                            color = MaterialTheme.colorScheme.onSurface
+                                        )
+                                        IconButton(
+                                            onClick = {
+                                                if (!isRefreshing) {
+                                                    isRefreshing = true
+                                                    scope.launch {
+                                                        val startTime = System.currentTimeMillis()
+                                                        onRefresh()
+                                                        val elapsed = System.currentTimeMillis() - startTime
+                                                        val minRotationTime = 600L
+                                                        if (elapsed < minRotationTime) {
+                                                            delay(minRotationTime - elapsed)
+                                                        }
+                                                        isRefreshing = false
+                                                    }
+                                                }
+                                            },
+                                            enabled = !isRefreshing,
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Refresh,
+                                                contentDescription = "Refresh Interfaces",
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .graphicsLayer { rotationZ = rotation },
+                                                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                            )
+                                        }
+                                    }
+
+                                    if (availableUpstreams.isNotEmpty()) {
+                                        Text(context.getString(R.string.available_system_interfaces), style = MaterialTheme.typography.labelMedium)
+
+                                        Box(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .weight(1f, fill = false)
+                                                .heightIn(max = 240.dp)
+                                        ) {
+                                            FlowRow(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .verticalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                availableUpstreams.forEach { iface ->
+                                                    OutlinedButton(
+                                                        onClick = { onAdd(iface) },
+                                                        enabled = !selectedInterfaces.contains(iface),
+                                                        contentPadding = PaddingValues(horizontal = 12.dp, vertical = 0.dp)
+                                                    ) {
+                                                        Text(iface)
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(context.getString(R.string.enter_manually), style = MaterialTheme.typography.labelMedium)
+                                    OutlinedTextField(
+                                        value = customIface,
+                                        onValueChange = { customIface = it },
+                                        label = { Text(context.getString(R.string.interface_name_hint)) },
+                                        singleLine = true,
+                                        modifier = Modifier.fillMaxWidth()
+                                    )
+
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        TextButton(onClick = onDismiss) {
+                                            Text(context.getString(R.string.cancel))
+                                        }
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Button(
+                                            onClick = {
+                                                onAdd(customIface.trim())
+                                            },
+                                            enabled = customIface.isNotBlank() && selectedInterfaces.size < 8
+                                        ) {
+                                            Text(context.getString(R.string.add))
+                                        }
+                                    }
                                 }
                             }
-                        }
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(context.getString(R.string.enter_manually), style = MaterialTheme.typography.labelMedium)
-                OutlinedTextField(
-                    value = customIface,
-                    onValueChange = { customIface = it },
-                    label = { Text(context.getString(R.string.interface_name_hint)) },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(16.dp),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                    )
-                )
-
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Surface(
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(onClick = onDismiss),
-                        shape = RoundedCornerShape(14.dp),
-                        color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                            Text(context.getString(R.string.cancel), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                        }
-                    }
-                    Surface(
-                        modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(
-                            enabled = customIface.isNotBlank() && selectedInterfaces.size < 8,
-                            onClick = { onAdd(customIface.trim()) }
-                        ),
-                        shape = RoundedCornerShape(14.dp),
-                        color = if (customIface.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                            Text(
-                                context.getString(R.string.add),
-                                style = MaterialTheme.typography.labelLarge,
-                                fontWeight = FontWeight.SemiBold,
-                                color = if (customIface.isNotBlank()) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                            )
-                        }
-                    }
-                }
-            }
-        }
     }
 }

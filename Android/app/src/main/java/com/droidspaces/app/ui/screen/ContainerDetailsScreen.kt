@@ -56,6 +56,7 @@ fun ContainerDetailsScreen(
     onNavigateToTerminal: () -> Unit = {}
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val snackbarHostState = remember { SnackbarHostState() }
     var refreshTrigger by remember { mutableIntStateOf(0) }
 
@@ -68,41 +69,33 @@ fun ContainerDetailsScreen(
     // Systemd state - stabilized to prevent mid-refresh changes
     var systemdState by remember { mutableStateOf<SystemdCardState>(SystemdCardState.Checking) }
 
-    // Background systemd check - happens once per container load
+    // Background systemd check - happens once, never during refresh
     LaunchedEffect(container.name) {
-        val isAvailable = ContainerSystemdManager.isSystemdAvailable(container.name)
-        systemdState = if (isAvailable) {
-            SystemdCardState.Available
-        } else {
-            SystemdCardState.NotAvailable
-        }
-    }
-
-    val lifecycleOwner = LocalLifecycleOwner.current
-
-    // Auto-refresh loop - refreshes both container info and uptime every 2s
-    // Only updates UI if data actually changed (prevents unnecessary recompositions)
-    // Uses repeatOnLifecycle to pause polling when the app is in background
-    LaunchedEffect(container.name) {
-        lifecycleOwner.lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            while (true) {
-                try {
-                    val newOSInfo = ContainerOSInfoManager.getOSInfo(container.name, useCache = false, appContext = context)
-                    val currentInfo = osInfo
-                    if (currentInfo == null || hasOSInfoChanged(currentInfo, newOSInfo)) {
-                        osInfo = newOSInfo
-                    }
-
-                    // If container is not running, we don't need real-time updates for usage
-                    if (!container.isRunning) break
-
-                    // Refresh users on the first run, then leave it to manual/specific refreshes
-                    if (refreshTrigger == 0) refreshTrigger++
-                } catch (e: Exception) {
-                    // Silently ignore refresh errors to keep the UI smooth
-                }
-                delay(2000)
+        scope.launch {
+            val isAvailable = ContainerSystemdManager.isSystemdAvailable(container.name)
+            systemdState = if (isAvailable) {
+                SystemdCardState.Available
+            } else {
+                SystemdCardState.NotAvailable
             }
+        }
+        }
+
+    // Auto-refresh when entering the screen - refresh both container info and users
+    // Only updates UI if data actually changed (prevents unnecessary recompositions)
+    LaunchedEffect(container.name) {
+        scope.launch {
+            // Refresh container info in background (always fetch fresh data)
+            val newOSInfo = ContainerOSInfoManager.getOSInfo(container.name, useCache = false, appContext = context)
+
+            // Only update UI if data actually changed
+            val currentInfo = osInfo
+            if (currentInfo == null || hasOSInfoChanged(currentInfo, newOSInfo)) {
+                osInfo = newOSInfo
+            }
+
+            // Trigger users refresh by incrementing refreshTrigger
+            refreshTrigger++
         }
     }
 
@@ -128,100 +121,43 @@ fun ContainerDetailsScreen(
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentPadding = PaddingValues(16.dp),
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding),
+                contentPadding = PaddingValues(16.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            // OS Information - Total Rewrite (Zero Shadow / Flat Design)
-            item(key = "os_info_flat_grid_${container.name}") {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(16.dp)
-                    ) {
-                        // Header Row
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Info,
-                                contentDescription = null,
-                                modifier = Modifier.size(18.dp),
-                                tint = MaterialTheme.colorScheme.primary
-                            )
-                            Text(
-                                text = context.getString(R.string.container_info),
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.Bold,
-                                color = MaterialTheme.colorScheme.onSurface
-                            )
-                        }
+            ) {
+                // OS Information Card - Stable key prevents recomposition glitches
+                item(key = "os_info_${container.name}") {
+                    ContainerInfoCard(
+                        osInfo = osInfo
+                    )
+                }
 
-                        osInfo?.let { info ->
-                            // Dynamic Height Synced Grid - measure all 6 and find max
-                            val tokens = mutableListOf<@Composable () -> Unit>().apply {
-                                add { IdentityToken(context.getString(R.string.distribution), info.prettyName ?: info.name ?: "Linux", when {
-                                    (info.prettyName ?: info.name ?: "").contains("Ubuntu", true) -> Icons.Default.Adjust
-                                    (info.prettyName ?: info.name ?: "").contains("Debian", true) -> Icons.Default.Circle
-                                    (info.prettyName ?: info.name ?: "").contains("Alpine", true) -> Icons.Default.Landscape
-                                    else -> Icons.Default.Dashboard
-                                }, MaterialTheme.colorScheme.primary) }
-                                add { IdentityToken(context.getString(R.string.hostname), info.hostname ?: "localhost", Icons.Default.Computer, MaterialTheme.colorScheme.secondary) }
-                                add { IdentityToken(context.getString(R.string.uptime), info.uptime ?: "0s", Icons.Default.Timer, MaterialTheme.colorScheme.tertiary) }
-                                add { IdentityToken(context.getString(R.string.ip_address), info.ipAddress ?: "127.0.0.1", Icons.Default.Lan, MaterialTheme.colorScheme.outline) }
-                                if (container.isRunning) {
-                                    add { IdentityToken(context.getString(R.string.cpu_usage_label), info.cpuUsage?.let { context.getString(R.string.cpu_percent_label, it) } ?: "---", Icons.Default.Speed, MaterialTheme.colorScheme.primary) }
-                                    add { IdentityToken(context.getString(R.string.ram_usage_label), info.ramUsageMb?.let { context.getString(R.string.ram_percent_label, it, info.ramPercent ?: 0.0) } ?: "---", Icons.Default.Memory, MaterialTheme.colorScheme.secondary) }
-                                }
-                            }
+                // Users Card - Stable key (don't include refreshTrigger to prevent recreation)
+                item(key = "users_${container.name}") {
+                    ContainerUsersCard(
+                        containerName = container.name,
+                        refreshTrigger = refreshTrigger,
+                        snackbarHostState = snackbarHostState
+                    )
+                }
 
-                            SyncedGrid(items = tokens)
-                        } ?: Box(
-                            modifier = Modifier.fillMaxWidth().height(100.dp),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = context.getString(R.string.unable_to_read_container_info),
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
+                item(key = "terminal_${container.name}") {
+                    TerminalCard(
+                        containerName = container.name,
+                        onOpenTerminal = onNavigateToTerminal
+                    )
+                }
+
+                item(key = "systemd_${container.name}") {
+                    PremiumSystemdCard(
+                        state = systemdState,
+                        onNavigateToSystemd = onNavigateToSystemd
+                    )
                 }
             }
-
-            // Users Card - Stable key (don't include refreshTrigger to prevent recreation)
-            item(key = "users_${container.name}") {
-                ContainerUsersCard(
-                    containerName = container.name,
-                    refreshTrigger = refreshTrigger,
-                    snackbarHostState = snackbarHostState
-                )
-            }
-
-            item(key = "terminal_${container.name}") {
-                TerminalCard(
-                    containerName = container.name,
-                    onOpenTerminal = onNavigateToTerminal
-                )
-            }
-
-            item(key = "systemd_${container.name}") {
-                PremiumSystemdCard(
-                    state = systemdState,
-                    onNavigateToSystemd = onNavigateToSystemd
-                )
-            }
-        }
     }
 }
 
@@ -246,74 +182,149 @@ private fun hasOSInfoChanged(old: ContainerOSInfoManager.OSInfo, new: ContainerO
            old.id != new.id ||
            old.hostname != new.hostname ||
            old.ipAddress != new.ipAddress ||
-           old.uptime != new.uptime ||
-           old.cpuUsage != new.cpuUsage ||
-           old.ramUsageMb != new.ramUsageMb ||
-           old.ramPercent != new.ramPercent
+           old.uptime != new.uptime
 }
 
+/**
+ * Premium Container Info Card - Smooth animations, instant display
+ */
+@Composable
+private fun ContainerInfoCard(
+    osInfo: ContainerOSInfoManager.OSInfo?,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    // Fade-in animation for smooth appearance
+    var visible by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        visible = true
+    }
+
+    val alpha by animateFloatAsState(
+        targetValue = if (visible) 1f else 0f,
+        animationSpec = AnimationUtils.cardFadeSpec(),
+        label = "card_fade"
+    )
+
+    ElevatedCard(
+        modifier = modifier
+            .fillMaxWidth()
+            .heightIn(min = 200.dp) // Fixed minimum height prevents layout shifts
+            .alpha(alpha)
+            .graphicsLayer {
+                // Hardware acceleration for premium animations
+                this.alpha = alpha
+            },
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        )
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                Icon(
+                    Icons.Default.Info,
+                    contentDescription = null,
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.primary
+                )
+                            Text(
+                                text = context.getString(R.string.container_info),
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold
+                            )
+            }
+
+                            // Use Crossfade for smooth transitions when osInfo updates
+                            Crossfade(
+                                targetState = osInfo,
+                                animationSpec = AnimationUtils.mediumSpec(),
+                                label = "os_info_transition"
+                            ) { currentInfo ->
+                                if (currentInfo != null) {
+                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                        // Distribution
+                                        (currentInfo.prettyName ?: currentInfo.name)?.let {
+                                            InfoRow(label = context.getString(R.string.distribution), value = it)
+                                        }
+
+                                        // Version
+                                        currentInfo.version?.let {
+                                            InfoRow(label = context.getString(R.string.version), value = it)
+                                        }
+
+                                        // Container Uptime
+                                        currentInfo.uptime?.let {
+                                            InfoRow(label = context.getString(R.string.uptime), value = it)
+                                        }
+
+                                        // Hostname
+                                        currentInfo.hostname?.let {
+                                            InfoRow(label = context.getString(R.string.hostname), value = it)
+                                        }
+
+                                        // IP Address
+                                        currentInfo.ipAddress?.let {
+                                            InfoRow(label = context.getString(R.string.ip_address), value = it)
+                                        }
+
+                                        // CPU Usage
+                                        currentInfo.cpuUsage?.let {
+                                            InfoRow(label = context.getString(R.string.cpu_usage_label), value = context.getString(R.string.cpu_percent_label, it))
+                                        }
+
+                                        // RAM Usage
+                                        currentInfo.ramUsageMb?.let {
+                                            InfoRow(label = context.getString(R.string.ram_usage_label), value = context.getString(R.string.ram_percent_label, it, currentInfo.ramPercent ?: 0.0))
+                                        }
+                                }
+                                } else {
+                                    Text(
+                                    text = context.getString(R.string.unable_to_read_container_info),
+                style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                                }
+                            }
+                            }
+                        }
+                    }
 
 /**
  * Info row with optimized layout - no unnecessary recompositions
  */
 @Composable
-private fun IdentityToken(
+private fun InfoRow(
     label: String,
-    value: String,
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    containerColor: androidx.compose.ui.graphics.Color,
-    modifier: Modifier = Modifier
+    value: String
 ) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth(),
-        shape = RoundedCornerShape(16.dp),
-        color = containerColor.copy(alpha = 0.08f),
-        border = androidx.compose.foundation.BorderStroke(1.dp, containerColor.copy(alpha = 0.15f))
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Column(
-            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            // Header Row (Top-Center)
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 2.dp)
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    modifier = Modifier.size(13.dp),
-                    tint = containerColor
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = label.uppercase(),
-                    style = MaterialTheme.typography.labelSmall.copy(fontSize = 11.sp),
-                    color = containerColor,
-                    fontWeight = FontWeight.Black,
-                    letterSpacing = 0.5.sp,
-                    maxLines = 1
-                )
-            }
-
-            // Value Text (Middle-Center)
-            Text(
-                text = value,
-                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp),
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.onSurface,
-                textAlign = androidx.compose.ui.text.style.TextAlign.Center,
-                maxLines = 3,
-                minLines = 1,
-                overflow = androidx.compose.ui.text.style.TextOverflow.Visible,
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 4.dp)
-            )
-        }
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            fontWeight = FontWeight.Medium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(0.4f)
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(0.6f)
+        )
     }
 }
 
@@ -343,15 +354,20 @@ private fun TerminalCard(
         label = "terminal_card_fade"
     )
 
-    Surface(
+    ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
             .heightIn(min = 88.dp)
             .alpha(alpha)
             .graphicsLayer { this.alpha = alpha },
-        shape = RoundedCornerShape(20.dp),
-        color = MaterialTheme.colorScheme.surfaceContainerHigh,
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        ),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.tertiaryContainer
+        )
     ) {
         Row(
             modifier = Modifier
@@ -362,32 +378,31 @@ private fun TerminalCard(
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(
                     imageVector = Icons.Default.Terminal,
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
-                    tint = MaterialTheme.colorScheme.primary
+                    modifier = Modifier.size(22.dp),
+                    tint = MaterialTheme.colorScheme.tertiary
                 )
                 Column {
                     Text(
                         text = context.getString(R.string.terminal),
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = MaterialTheme.colorScheme.onSurface
+                        color = MaterialTheme.colorScheme.onTertiaryContainer
                     )
                     val description = if (sessionCount > 0) {
-                        if (sessionCount == 1) context.getString(R.string.session_running_singular)
-                        else context.getString(R.string.sessions_running_plural, sessionCount)
+                        "$sessionCount ${if (sessionCount == 1) "session" else "sessions"} running · tap to restore"
                     } else {
                         context.getString(R.string.terminal_card_desc)
                     }
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
+                        color = MaterialTheme.colorScheme.onTertiaryContainer.copy(alpha = 0.7f)
                     )
                 }
             }
@@ -396,18 +411,18 @@ private fun TerminalCard(
                 onClick = onOpenTerminal,
                 modifier = Modifier.widthIn(min = 140.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
                 )
             ) {
                 Icon(
                     if (sessionCount > 0) Icons.Default.Terminal else Icons.Default.ChevronRight,
                     contentDescription = null,
-                    modifier = Modifier.size(16.dp)
+                    modifier = Modifier.size(18.dp)
                 )
                 Spacer(Modifier.width(6.dp))
                 Text(
-                    if (sessionCount > 0) context.getString(R.string.restore) else context.getString(R.string.open),
+                    if (sessionCount > 0) "Restore" else context.getString(R.string.open),
                     fontWeight = FontWeight.SemiBold
                 )
             }
@@ -443,32 +458,37 @@ private fun PremiumSystemdCard(
         label = "systemd_fade"
     )
 
-    Surface(
+    ElevatedCard(
         modifier = modifier
             .fillMaxWidth()
-            .heightIn(min = 88.dp)
+            .heightIn(min = 88.dp) // Fixed minimum height prevents glitches
             .alpha(alpha)
             .graphicsLayer {
                 this.alpha = alpha
             },
-        shape = RoundedCornerShape(20.dp),
-        color = when (state) {
-            is SystemdCardState.Available -> MaterialTheme.colorScheme.surfaceContainerHigh
-            else -> MaterialTheme.colorScheme.surfaceContainerLow.copy(alpha = 0.5f)
-        },
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
+        shape = RoundedCornerShape(16.dp),
+        elevation = CardDefaults.elevatedCardElevation(
+            defaultElevation = 2.dp,
+            pressedElevation = 4.dp
+        ),
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = when (state) {
+                is SystemdCardState.Available -> MaterialTheme.colorScheme.primaryContainer
+                else -> MaterialTheme.colorScheme.surfaceContainerLow
+            }
+        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
                 .padding(20.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
             // Icon + Title
             Row(
                 verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.weight(1f)
             ) {
                 Icon(
@@ -478,17 +498,20 @@ private fun PremiumSystemdCard(
                         is SystemdCardState.Checking -> Icons.Default.HourglassEmpty
                     },
                     contentDescription = null,
-                    modifier = Modifier.size(20.dp),
+                    modifier = Modifier.size(22.dp),
                     tint = when (state) {
                         is SystemdCardState.Available -> MaterialTheme.colorScheme.primary
                         else -> MaterialTheme.colorScheme.onSurfaceVariant
                     }
                 )
-                Text(
-                    text = context.getString(R.string.systemd),
-                    style = MaterialTheme.typography.titleMedium,
+                            Text(
+                                text = context.getString(R.string.systemd),
+                                style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.onSurface
+                    color = when (state) {
+                        is SystemdCardState.Available -> MaterialTheme.colorScheme.onPrimaryContainer
+                        else -> MaterialTheme.colorScheme.onSurface
+                    }
                 )
             }
 
@@ -501,9 +524,9 @@ private fun PremiumSystemdCard(
                 when (currentState) {
                     is SystemdCardState.Checking -> {
                         FilledTonalButton(
-                            onClick = {},
+                                        onClick = {},
                             enabled = false,
-                            modifier = Modifier.widthIn(min = 140.dp),
+                            modifier = Modifier.widthIn(min = 140.dp), // Fixed width prevents shifts
                             colors = ButtonDefaults.filledTonalButtonColors(
                                 disabledContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
                                 disabledContentColor = MaterialTheme.colorScheme.onSurfaceVariant
@@ -523,17 +546,17 @@ private fun PremiumSystemdCard(
                     }
                     is SystemdCardState.NotAvailable -> {
                         FilledTonalButton(
-                            onClick = {},
+                                        onClick = {},
                             enabled = false,
                             modifier = Modifier.widthIn(min = 140.dp),
                             colors = ButtonDefaults.filledTonalButtonColors(
-                                disabledContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.3f),
+                                disabledContainerColor = MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.5f),
                                 disabledContentColor = MaterialTheme.colorScheme.onErrorContainer
                             )
-                        ) {
-                            Text(context.getString(R.string.not_available))
-                        }
-                    }
+                                    ) {
+                                        Text(context.getString(R.string.not_available))
+                                    }
+                                }
                     is SystemdCardState.Available -> {
                         Button(
                             onClick = onNavigateToSystemd,
@@ -546,7 +569,7 @@ private fun PremiumSystemdCard(
                             Icon(
                                 Icons.Default.ChevronRight,
                                 contentDescription = null,
-                                modifier = Modifier.size(16.dp)
+                                modifier = Modifier.size(18.dp)
                             )
                             Spacer(Modifier.width(6.dp))
                             Text(
@@ -561,43 +584,3 @@ private fun PremiumSystemdCard(
     }
 }
 
-
-/**
- * Dynamic Height Synced Grid - measures all items and applies max height to all.
- */
-@Composable
-private fun SyncedGrid(
-    items: List<@Composable () -> Unit>,
-    modifier: Modifier = Modifier
-) {
-    androidx.compose.ui.layout.SubcomposeLayout(modifier = modifier.fillMaxWidth()) { constraints ->
-        val gutter = 12.dp.roundToPx()
-        val itemWidth = (constraints.maxWidth - gutter) / 2
-        val itemConstraints = constraints.copy(minWidth = itemWidth, maxWidth = itemWidth, minHeight = 0)
-        
-        // Pass 1: Measure to find the maximum height needed
-        val maxMeasuredHeight = subcompose("measurer") {
-            items.forEach { it() }
-        }.map { it.measure(itemConstraints) }.maxOfOrNull { it.height } ?: 0
-        
-        // Pass 2: Actually layout with the forced uniform height
-        val finalPlaceables = subcompose("content") {
-            items.forEach { it() }
-        }.map { 
-            it.measure(itemConstraints.copy(minHeight = maxMeasuredHeight, maxHeight = maxMeasuredHeight)) 
-        }
-        
-        val rowCount = (items.size + 1) / 2
-        val totalHeight = rowCount * maxMeasuredHeight + (rowCount - 1) * gutter
-        
-        layout(constraints.maxWidth, totalHeight) {
-            finalPlaceables.forEachIndexed { index, placeable ->
-                val row = index / 2
-                val col = index % 2
-                val x = if (col == 0) 0 else constraints.maxWidth - placeable.width
-                val y = row * (maxMeasuredHeight + gutter)
-                placeable.placeRelative(x, y)
-            }
-        }
-    }
-}

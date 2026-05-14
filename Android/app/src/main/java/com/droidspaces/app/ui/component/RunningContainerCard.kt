@@ -20,11 +20,14 @@ import com.droidspaces.app.util.AnimationUtils
 import com.droidspaces.app.util.ContainerInfo
 import com.droidspaces.app.util.ContainerOSInfoManager
 import com.droidspaces.app.util.ContainerUsageCollector
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.ExperimentalFoundationApi
 
 /**
  * Container card for Panel tab — shows container name, OS info, resource usage, and quick actions.
  * Uses droidspaces --name run commands for accurate in-container metrics.
  */
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun RunningContainerCard(
     container: ContainerInfo,
@@ -50,12 +53,12 @@ fun RunningContainerCard(
 
     val cardShape = RoundedCornerShape(20.dp)
 
-    Surface(
-        onClick = onEnter,
-        modifier = modifier.fillMaxWidth().clip(cardShape),
+    ElevatedCard(
+        modifier = modifier
+                .fillMaxWidth()
+                .clip(cardShape)
+                .combinedClickable(onClick = onEnter),
         shape = cardShape,
-        color = MaterialTheme.colorScheme.surfaceContainer,
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f))
     ) {
         Column(
             modifier = Modifier

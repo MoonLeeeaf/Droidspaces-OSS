@@ -106,6 +106,11 @@ fun ContainerConfigScreen(
     var privileged by remember { mutableStateOf(initialPrivileged) }
     val context = LocalContext.current
 
+    var availableUpstreams by remember { mutableStateOf<List<String>>(emptyList()) }
+    LaunchedEffect(Unit) {
+        availableUpstreams = ContainerManager.listUpstreamInterfaces()
+    }
+
     // Internal UI States
     var showFilePicker by remember { mutableStateOf(false) }
     var showDestDialog by remember { mutableStateOf(false) }
@@ -124,76 +129,37 @@ fun ContainerConfigScreen(
 
     if (showDestDialog) {
         var destPath by remember { mutableStateOf("") }
-        val clearFocus = com.droidspaces.app.ui.util.rememberClearFocus()
-        Dialog(
+        AlertDialog(
             onDismissRequest = { showDestDialog = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp),
-                shape = RoundedCornerShape(24.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                tonalElevation = 0.dp
-            ) {
-                Column(modifier = Modifier.padding(24.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                    Text(context.getString(R.string.enter_container_path), style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-                    OutlinedTextField(
-                        value = destPath,
-                        onValueChange = { destPath = it },
-                        label = { Text(context.getString(R.string.container_path_placeholder)) },
-                        singleLine = true,
-                        modifier = Modifier.fillMaxWidth(),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                            focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                            focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                        )
-                    )
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Surface(
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(onClick = { clearFocus(); showDestDialog = false }),
-                            shape = RoundedCornerShape(14.dp),
-                            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.06f),
-                            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f)),
-                            tonalElevation = 0.dp
-                        ) {
-                            Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                                Text(context.getString(R.string.cancel), style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold)
-                            }
+            title = { Text(context.getString(R.string.enter_container_path)) },
+            text = {
+                OutlinedTextField(
+                    value = destPath,
+                    onValueChange = { destPath = it },
+                    label = { Text(context.getString(R.string.container_path_placeholder)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        if (destPath.isNotBlank()) {
+                            bindMounts = bindMounts + BindMount(tempSrcPath, destPath)
+                            showDestDialog = false
                         }
-                        Surface(
-                            modifier = Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).clickable(
-                                enabled = destPath.startsWith("/"),
-                                onClick = {
-                                    clearFocus()
-                                    if (destPath.isNotBlank()) {
-                                        bindMounts = bindMounts + BindMount(tempSrcPath, destPath)
-                                        showDestDialog = false
-                                    }
-                                }
-                            ),
-                            shape = RoundedCornerShape(14.dp),
-                            color = if (destPath.startsWith("/")) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                            tonalElevation = 0.dp
-                        ) {
-                            Box(modifier = Modifier.padding(14.dp), contentAlignment = Alignment.Center) {
-                                Text(
-                                    context.getString(R.string.ok),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (destPath.startsWith("/")) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                )
-                            }
-                        }
-                    }
+                    },
+                    enabled = destPath.startsWith("/")
+                ) {
+                    Text(context.getString(R.string.ok))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDestDialog = false }) {
+                    Text(context.getString(R.string.cancel))
                 }
             }
-        }
+        )
     }
 
     var showEnvDialog by remember { mutableStateOf(false) }
@@ -233,53 +199,23 @@ fun ContainerConfigScreen(
             )
         },
         bottomBar = {
-            val btnShape = RoundedCornerShape(20.dp)
             val isUpstreamValid = netMode != "nat" || upstreamInterfaces.isNotEmpty()
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                tonalElevation = 0.dp
+                tonalElevation = 2.dp,
+                shadowElevation = 8.dp
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        thickness = 1.dp
-                    )
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp)
-                            .navigationBarsPadding()
-                            .clip(btnShape)
-                            .clickable(
-                                enabled = isUpstreamValid,
-                                onClick = {
-                                    onNext(netMode, disableIPv6, enableAndroidStorage, enableHwAccess, enableGpuMode, enableTermuxX11, selinuxPermissive, volatileMode, bindMounts, dnsServers, runAtBoot, forceCgroupv1, blockNestedNs, privileged, if (envFileContent.isBlank()) null else envFileContent, upstreamInterfaces, portForwards)
-                                },
-                                indication = androidx.compose.material.ripple.rememberRipple(bounded = true),
-                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                            ),
-                        shape = btnShape,
-                        color = if (isUpstreamValid) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (isUpstreamValid) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                )
-                                Text(
-                                    context.getString(R.string.next_storage),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (isUpstreamValid) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                )
-                            }
-                        }
-                    }
+                Button(
+                    onClick = {
+                        onNext(netMode, disableIPv6, enableAndroidStorage, enableHwAccess, enableGpuMode, enableTermuxX11, selinuxPermissive, volatileMode, bindMounts, dnsServers, runAtBoot, forceCgroupv1, blockNestedNs, privileged, if (envFileContent.isBlank()) null else envFileContent, upstreamInterfaces, portForwards)
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                        .navigationBarsPadding()
+                        .height(56.dp),
+                    enabled = isUpstreamValid
+                ) {
+                    Text(context.getString(R.string.next_storage), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -288,8 +224,7 @@ fun ContainerConfigScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(horizontal = 24.dp)
-                .padding(top = 24.dp)
+                .padding(24.dp)
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
@@ -392,13 +327,6 @@ fun ContainerConfigScreen(
                 placeholder = { Text(context.getString(R.string.dns_servers_placeholder)) },
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
-                shape = RoundedCornerShape(16.dp),
-                colors = OutlinedTextFieldDefaults.colors(
-                    unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-                    unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-                    focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-                ),
                 leadingIcon = {
                     Icon(Icons.Default.Dns, contentDescription = null)
                 }

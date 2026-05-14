@@ -42,13 +42,15 @@ fun SystemInfoCard(
         }
     }
 
-    Surface(
-        color = MaterialTheme.colorScheme.surfaceContainer,
+    ElevatedCard(
+        colors = CardDefaults.elevatedCardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
         shape = RoundedCornerShape(20.dp),
-        border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
+        elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 8.dp)
+            .padding(vertical = 16.dp)
     ) {
         // MMRL-style: items stacked directly with internal padding
         Column(

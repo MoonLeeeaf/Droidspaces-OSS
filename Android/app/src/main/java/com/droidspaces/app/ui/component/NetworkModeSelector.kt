@@ -31,14 +31,6 @@ fun NetworkModeSelector(
         "none" to context.getString(R.string.network_mode_none)
     )
 
-    val modernFieldShape = RoundedCornerShape(16.dp)
-    val modernFieldColors = OutlinedTextFieldDefaults.colors(
-        unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-        focusedBorderColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.8f),
-        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
-        focusedContainerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f)
-    )
-
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = !expanded },
@@ -51,8 +43,6 @@ fun NetworkModeSelector(
             label = { Text(context.getString(R.string.network_mode)) },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
             leadingIcon = { Icon(Icons.Default.Public, contentDescription = null) },
-            shape = modernFieldShape,
-            colors = modernFieldColors,
             modifier = Modifier.menuAnchor().fillMaxWidth()
         )
         ExposedDropdownMenu(
