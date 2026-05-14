@@ -54,11 +54,19 @@ if $TEST -f "$ROOTFS_PATH/etc/droidspaces"; then
     exit 0
 fi
 
+# Detect NixOS
+if $TEST -d "$ROOTFS_PATH/nix"; then
+    log "NixOS detected, skipping all post-extraction fixes (Nix manages its own state)"
+    # Mark as applied anyway to prevent re-running
+    $TOUCH "$ROOTFS_PATH/etc/droidspaces" 2>/dev/null || true
+    exit 0
+fi
+
 # Helper to execute a command inside the chroot environment
 run_in_chroot() {
     local command="$*"
     local common_exports="export PATH='/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/libexec:/opt/bin'; export TMPDIR='/tmp';"
-    
+
     # We use busybox chroot to run commands inside the rootfs
     # Note: This assumes /bin/sh exists in the rootfs
     $CHROOT "$ROOTFS_PATH" /bin/sh -c "$common_exports $command"
