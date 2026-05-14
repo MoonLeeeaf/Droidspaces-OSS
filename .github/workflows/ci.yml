@@ -93,10 +93,7 @@ jobs:
         KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
       run: |
         cd Android
-        ./gradlew assembleRelease \
-          -PKEYSTORE_PASSWORD="${{ secrets.KEYSTORE_PASSWORD }}" \
-          -PKEY_ALIAS="${{ secrets.KEY_ALIAS }}" \
-          -PKEY_PASSWORD="${{ secrets.KEY_PASSWORD }}"
+        ./gradlew assembleDebug
 
     - name: Stage & Rename Artifacts
       run: |
@@ -105,7 +102,7 @@ jobs:
         APK_NAME="Droidspaces-universal-${TAG}-${DATE}.apk"
         TAR_NAME=$(ls droidspaces-v*-*.tar.gz)
         mkdir -p dist
-        mv Android/app/build/outputs/apk/release/app-release.apk dist/${APK_NAME}
+        mv Android/app/build/outputs/apk/debug/app-debug.apk dist/${APK_NAME}
         mv ${TAR_NAME} dist/
         echo "APK_FILE=dist/${APK_NAME}" >> $GITHUB_ENV
         echo "TAR_FILE=dist/${TAR_NAME}" >> $GITHUB_ENV
