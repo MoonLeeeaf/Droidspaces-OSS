@@ -17,7 +17,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
+import com.droidspaces.app.ui.component.DsDropdown
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
@@ -77,8 +77,6 @@ fun ContainerUsersCard(
         }
     }
 
-    // Dropdown expanded state - single source of truth
-    var isDropdownExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(containerName, refreshTrigger) {
         scope.launch {
@@ -94,13 +92,6 @@ fun ContainerUsersCard(
         }
     }
 
-    // Unified unfocus function - prevents race conditions
-    fun unfocusDropdown() {
-        if (isDropdownExpanded) {
-            isDropdownExpanded = false
-        }
-        clearFocus()
-    }
 
     // Manual refresh function with premium rotation animation
     fun refreshUsers() {
@@ -237,7 +228,7 @@ fun ContainerUsersCard(
                             indication = null,
                             interactionSource = remember { MutableInteractionSource() }
                         ) {
-                            unfocusDropdown()
+                            clearFocus()
                         }
                 ) {
                     users.forEach { user ->
@@ -270,7 +261,7 @@ fun ContainerUsersCard(
                 label = "dropdown_border_animation"
             )
 
-            ExposedDropdownMenuBox(
+            /* ExposedDropdownMenuBox(
                 expanded = isDropdownExpanded,
                 onExpandedChange = { newExpanded ->
                     // Direct state update - no conditional logic to prevent race conditions
@@ -327,7 +318,14 @@ fun ContainerUsersCard(
                         )
                     }
                 }
-            }
+            }*/
+            DsDropdown(
+                label = context.getString(R.string.select_user),
+                selected = selectedUser,
+                options = availableUsers,
+                displayName = { it },
+                onSelect = { selectedUser = it }
+            )
 
             // Copy login button - right aligned, same dimensions and style as Manage button
             Row(
@@ -336,7 +334,7 @@ fun ContainerUsersCard(
             ) {
                 Button(
                     onClick = {
-                        unfocusDropdown()
+                        clearFocus()
                         scope.launch {
                             // Check if droidspaces is in PATH, otherwise use full path
                             val droidspacesCmd = withContext(Dispatchers.IO) {
