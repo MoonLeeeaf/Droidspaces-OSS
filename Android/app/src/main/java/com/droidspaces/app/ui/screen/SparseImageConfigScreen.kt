@@ -64,55 +64,25 @@ fun SparseImageConfigScreen(
         bottomBar = {
             val btnShape = RoundedCornerShape(20.dp)
             Surface(
-                modifier = Modifier.fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surfaceContainer,
-                tonalElevation = 0.dp
+                tonalElevation = 2.dp,
+                shadowElevation = 8.dp
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.25f),
-                        thickness = 1.dp
-                    )
-                    Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(24.dp)
-                            .navigationBarsPadding()
-                            .clip(btnShape)
-                            .clickable(
-                                enabled = isNextEnabled,
-                                onClick = {
-                                    if (useSparseImage) {
-                                        val s = sizeGB.toIntOrNull()
-                                        if (s != null && s in 4..512) onNext(true, s)
-                                    } else {
-                                        onNext(false, 8)
-                                    }
-                                },
-                                indication = androidx.compose.material.ripple.rememberRipple(bounded = true),
-                                interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
-                            ),
-                        shape = btnShape,
-                        color = if (isNextEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f),
-                        tonalElevation = 0.dp
-                    ) {
-                        Box(modifier = Modifier.padding(vertical = 16.dp), contentAlignment = Alignment.Center) {
-                            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.ArrowForward,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(18.dp),
-                                    tint = if (isNextEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                )
-                                Text(
-                                    context.getString(R.string.next_configuration),
-                                    style = MaterialTheme.typography.labelLarge,
-                                    fontWeight = FontWeight.SemiBold,
-                                    color = if (isNextEnabled) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
-                                )
-                            }
+                Button(
+                    onClick = {
+                        if (useSparseImage) {
+                            val s = sizeGB.toIntOrNull()
+                            if (s != null && s in 4..512) onNext(true, s)
+                        } else {
+                            onNext(false, 8)
                         }
-                    }
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp)
+                        .navigationBarsPadding()
+                        .height(56.dp),
+                ) {
+                    Text(context.getString(R.string.next_configuration), style = MaterialTheme.typography.labelLarge)
                 }
             }
         }
@@ -126,7 +96,7 @@ fun SparseImageConfigScreen(
                 .padding(horizontal = 24.dp)
                 .padding(top = 24.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(20.dp)
+            verticalArrangement = Arrangement.spacedBy(24.dp)
         ) {
             Text(
                 text = context.getString(R.string.storage_configuration),
@@ -135,15 +105,18 @@ fun SparseImageConfigScreen(
             )
 
             // Info card
-            Surface(
+            ElevatedCard(
                 modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.elevatedCardColors(
+                    containerColor = MaterialTheme.colorScheme.surfaceVariant
+                ),
                 shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.primary.copy(alpha = 0.06f),
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)),
-                tonalElevation = 0.dp
+                elevation = CardDefaults.elevatedCardElevation(defaultElevation = 1.dp)
             ) {
                 Column(
-                    modifier = Modifier.padding(20.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(20.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     Row(
@@ -153,7 +126,7 @@ fun SparseImageConfigScreen(
                         Icon(
                             imageVector = Icons.Default.Info,
                             contentDescription = null,
-                            modifier = Modifier.size(22.dp),
+                            modifier = Modifier.size(24.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Text(
@@ -165,25 +138,21 @@ fun SparseImageConfigScreen(
                     }
                     Text(
                         text = context.getString(R.string.sparse_images_recommended),
-                        style = MaterialTheme.typography.bodyMedium,
+                        style = MaterialTheme.typography.bodyLarge,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                     Text(
                         text = context.getString(R.string.sparse_images_description),
-                        style = MaterialTheme.typography.bodySmall,
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)
                     )
                 }
             }
 
             // Toggle
-            Surface(
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                onClick = { useSparseImage = !useSparseImage },
-                shape = RoundedCornerShape(20.dp),
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                tonalElevation = 0.dp
+                onClick = { useSparseImage = !useSparseImage }
             ) {
                 Row(
                     modifier = Modifier
@@ -200,7 +169,7 @@ fun SparseImageConfigScreen(
                         Icon(
                             imageVector = Icons.Default.Storage,
                             contentDescription = null,
-                            modifier = Modifier.size(24.dp),
+                            modifier = Modifier.size(28.dp),
                             tint = MaterialTheme.colorScheme.primary
                         )
                         Column(
@@ -214,33 +183,22 @@ fun SparseImageConfigScreen(
                             )
                             Text(
                                 text = context.getString(R.string.use_sparse_image_description),
-                                style = MaterialTheme.typography.bodySmall,
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f)
                             )
                         }
                     }
                     Switch(
                         checked = useSparseImage,
-                        onCheckedChange = { useSparseImage = it },
-                        colors = SwitchDefaults.colors(
-                            checkedThumbColor = MaterialTheme.colorScheme.onPrimary,
-                            checkedTrackColor = MaterialTheme.colorScheme.primary,
-                            uncheckedThumbColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.8f),
-                            uncheckedTrackColor = MaterialTheme.colorScheme.surfaceVariant,
-                            uncheckedBorderColor = MaterialTheme.colorScheme.outline.copy(alpha = 0.2f)
-                        )
+                        onCheckedChange = { useSparseImage = it }
                     )
                 }
             }
 
             // Size input
             if (useSparseImage) {
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(20.dp),
-                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
-                    tonalElevation = 0.dp
+                Card(
+                    modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         modifier = Modifier
@@ -255,7 +213,7 @@ fun SparseImageConfigScreen(
                             Icon(
                                 imageVector = Icons.Default.Settings,
                                 contentDescription = null,
-                                modifier = Modifier.size(22.dp),
+                                modifier = Modifier.size(24.dp),
                                 tint = MaterialTheme.colorScheme.primary
                             )
                             Text(
@@ -279,15 +237,13 @@ fun SparseImageConfigScreen(
                                 }
                             },
                             label = { Text(context.getString(R.string.size_gb)) },
-                            placeholder = { Text(context.getString(R.string.default_size_gb_hint)) },
+                            placeholder = { Text("8") },
                             isError = sizeError != null,
                             supportingText = sizeError?.let { { Text(it) } } ?: {
                                 Text(context.getString(R.string.enter_size_between_4_512_gb))
                             },
                             modifier = Modifier.fillMaxWidth(),
                             singleLine = true,
-                            shape = fieldShape,
-                            colors = fieldColors,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                             leadingIcon = {
                                 Icon(Icons.Default.Settings, contentDescription = null)
@@ -297,7 +253,7 @@ fun SparseImageConfigScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(8.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
