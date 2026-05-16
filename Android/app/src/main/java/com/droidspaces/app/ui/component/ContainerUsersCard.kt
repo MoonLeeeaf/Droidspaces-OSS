@@ -77,6 +77,8 @@ fun ContainerUsersCard(
         }
     }
 
+    // Dropdown expanded state - single source of truth
+    var isDropdownExpanded by remember { mutableStateOf(false) }
 
     LaunchedEffect(containerName, refreshTrigger) {
         scope.launch {

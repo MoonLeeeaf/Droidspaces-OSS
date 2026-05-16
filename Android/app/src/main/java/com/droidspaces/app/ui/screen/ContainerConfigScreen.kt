@@ -239,7 +239,7 @@ fun ContainerConfigScreen(
                 .padding(innerPadding)
                 .padding(24.dp)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+            /* verticalArrangement = Arrangement.spacedBy(16.dp) */
         ) {
             Column(
                 modifier = Modifier

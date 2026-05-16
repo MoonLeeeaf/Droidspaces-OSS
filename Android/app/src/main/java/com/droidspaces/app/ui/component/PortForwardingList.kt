@@ -90,6 +90,7 @@ private fun AddPortForwardDialog(
     val context = LocalContext.current
     var hostPort by remember { mutableStateOf("") }
     var containerPort by remember { mutableStateOf("") }
+    var protoExpanded by remember { mutableStateOf(false) }
 
     var proto by remember { mutableStateOf("tcp") }
 
