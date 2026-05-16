@@ -234,21 +234,14 @@ fun ContainerConfigScreen(
             }
         }
     ) { innerPadding ->
-        ClearFocusOnClickOutside(
+        Column(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(innerPadding)
                 .padding(24.dp)
                 .verticalScroll(rememberScrollState()),
-            /* verticalArrangement = Arrangement.spacedBy(16.dp) */
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(horizontal = 24.dp)
-                    .padding(top = 24.dp)
-                    .verticalScroll(rememberScrollState()),
-                verticalArrangement = Arrangement.spacedBy(16.dp)
-            ) {
             Text(
                 text = context.getString(R.string.container_options),
                 style = MaterialTheme.typography.headlineSmall,
@@ -569,5 +562,4 @@ fun ContainerConfigScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
     }
-}
 }
